@@ -51,26 +51,9 @@ This version is an experimental pivot focusing entirely on raw transfer speed, p
 
 ---
 
-## ⚙️ Getting Started
 
-*(Note: Provide instructions here on how to run each specific version, such as npm install, pip install, or specific environment variables required for auth and room sockets.)*
 
-### Prerequisites
 
-* Ensure you have the necessary runtime environment installed.
-* For **v3.1**, ensure your host machine has sufficient RAM available to handle your maximum expected file size.
-
-### Installation
-
-Navigate to the desired version's directory and start the server:
-
-```bash
-# Example for v1
-cd my_cloud_locker_v1
-# [Insert install command, e.g., npm install]
-# [Insert run command, e.g., npm start]
-
-```
 
 ## ⚠️ Important Note on v3.1 Usage
 
