@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeavyLift | Secure Vault</title>
+    <style>
+        :root { --primary: #3B8ED0; --bg: #121212; --card: #1e1e1e; --text: #fff; --success: #2CC985; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background-color: var(--card); padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); width: 100%; max-width: 550px; text-align: center; position: relative; }
+        
+        /* Drag & Drop Area */
+        .drop-zone { border: 2px dashed #444; border-radius: 12px; padding: 40px 20px; transition: all 0.3s; cursor: pointer; background: #1a1a1a; margin-bottom: 20px; }
+        .drop-zone.dragover { border-color: var(--primary); background: rgba(59, 142, 208, 0.1); }
+        .drop-zone p { color: #888; margin: 10px 0 0 0; font-size: 14px; }
+        .drop-zone span { font-size: 40px; }
+        input[type=file] { display: none; }
+        
+        /* Elements */
+        .btn { background-color: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; }
+        .btn:hover { background-color: #2c72a8; }
+        .btn:disabled { background-color: #444; cursor: not-allowed; }
+        .input-field { width: 100%; padding: 14px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; font-size: 16px; }
+        
+        /* Progress Bar */
+        .progress-wrapper { display: none; margin-top: 25px; text-align: left; }
+        .progress-bg { background-color: #333; border-radius: 8px; height: 12px; width: 100%; overflow: hidden; margin-bottom: 10px; }
+        .progress-bar { background-color: var(--success); height: 100%; width: 0%; transition: width 0.1s linear; }
+        .stats { display: flex; justify-content: space-between; color: #aaa; font-size: 13px; }
+        
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .logout { color: #aaa; text-decoration: none; font-size: 14px; }
+        .logout:hover { color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    {% if show_login %}
+        <h2>Vault Access Required</h2>
+        <p style="color: #777; margin-bottom: 30px;">This server is protected.</p>
+        {% if error %}<p style="color: #CD3838;">{{ error }}</p>{% endif %}
+        <form method="POST" action="/login">
+            <input type="password" name="password" class="input-field" placeholder="Enter Vault Password" required autofocus>
+            <button type="submit" class="btn">Unlock Server</button>
+        </form>
+    {% else %}
+        <div class="header-top">
+            <h2 style="margin:0;">HeavyLift Protocol</h2>
+            <a href="/logout" class="logout">Lock Vault (Logout)</a>
+        </div>
+
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <span>📁</span>
+            <div id="file-name" style="color: white; font-weight: bold; font-size: 18px; margin-top: 15px;">Drag & Drop Large File Here</div>
+            <p>or click to browse your computer</p>
+        </div>
+        <input type="file" id="fileInput" onchange="handleFileSelect(this.files[0])">
+
+        <button class="btn" id="uploadBtn" onclick="startUpload()" disabled>Initialize Transfer</button>
+
+        <div class="progress-wrapper" id="progressWrapper">
+            <div class="progress-bg"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="stats">
+                <span id="statusText">Calculating...</span>
+                <span id="percentageText">0%</span>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% if not show_login %}
+<script>
+    let selectedFile = null;
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+    const MAX_CONCURRENT_UPLOADS = 6;   // The engine for Maximum Speed
+
+    // --- Drag and Drop Logic ---
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
+    });
+
+    function handleFileSelect(file) {
+        selectedFile = file;
+        const sizeGB = (file.size / (1024*1024*1024)).toFixed(2);
+        document.getElementById('file-name').innerText = `${file.name} (${sizeGB} GB)`;
+        document.getElementById('uploadBtn').disabled = false;
+        
+        // Reset UI
+        document.getElementById('progressWrapper').style.display = 'none';
+        document.getElementById('uploadBtn').innerText = "Initialize Transfer";
+    }
+
+    async function startUpload() {
+        if (!selectedFile) return;
+        
+        // 1. Setup UI
+        document.getElementById('uploadBtn').disabled = true;
+        document.getElementById('progressWrapper').style.display = 'block';
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const percentageText = document.getElementById('percentageText');
+
+        const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
+        // Create a unique ID for this specific file to enable Resumability
+        const fileId = `${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}`;
+
+        // 2. Resume Check: Ask server what it already has
+        statusText.innerText = "Checking server for existing data...";
+        const statusRes = await fetch(`/status?file_id=${encodeURIComponent(fileId)}`);
+        const statusData = await statusRes.json();
+        const uploadedChunks = new Set(statusData.uploaded_chunks);
+        
+        let completedChunks = uploadedChunks.size;
+        if (completedChunks > 0 && completedChunks < totalChunks) {
+            statusText.innerText = `Resuming transfer... (${completedChunks} chunks found)`;
+        }
+
+        // 3. Prepare the queue of chunks that STILL need to be uploaded
+        const chunksToUpload = [];
+        for (let i = 0; i < totalChunks; i++) {
+            if (!uploadedChunks.has(i)) chunksToUpload.push(i);
+        }
+
+        // --- THE CONCURRENCY ENGINE ---
+        // This fires multiple chunks simultaneously to saturate your bandwidth
+        let currentIndex = 0;
+        
+        async function uploadWorker() {
+            while (currentIndex < chunksToUpload.length) {
+                const chunkIndex = chunksToUpload[currentIndex++];
+                
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, selectedFile.size);
+                const chunkBlob = selectedFile.slice(start, end);
+
+                const formData = new FormData();
+                formData.append('file', chunkBlob);
+                formData.append('file_id', fileId);
+                formData.append('chunkIndex', chunkIndex);
+
+                try {
+                    await fetch('/upload', { method: 'POST', body: formData });
+                    completedChunks++;
+                    
+                    // Update UI
+                    const percent = Math.round((completedChunks / totalChunks) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    percentageText.innerText = `${percent}%`;
+                    statusText.innerText = `Transferring... (${completedChunks}/${totalChunks})`;
+                } catch (e) {
+                    console.error("Chunk failed, will require restart:", e);
+                    // A true production app would implement automatic retries here
+                }
+            }
+        }
+
+        // Start 6 workers at the exact same time
+        const workers = [];
+        for (let w = 0; w < MAX_CONCURRENT_UPLOADS; w++) {
+            workers.push(uploadWorker());
+        }
+        await Promise.all(workers); // Wait for all workers to finish the queue
+
+        // 4. Send Assemble Command
+        statusText.innerText = "Stitching file together on server...";
+        const assembleForm = new FormData();
+        assembleForm.append('filename', selectedFile.name);
+        assembleForm.append('file_id', fileId);
+        assembleForm.append('totalChunks', totalChunks);
+
+        const assembleRes = await fetch('/assemble', { method: 'POST', body: assembleForm });
+        const assembleData = await assembleRes.json();
+
+        if (assembleData.status === 'complete') {
+            statusText.innerText = "✅ Secure Transfer Complete!";
+            statusText.style.color = "var(--success)";
+            percentageText.innerText = "100%";
+        } else {
+            statusText.innerText = "❌ Error during file assembly.";
+            statusText.style.color = "#CD3838";
+        }
+    }
+</script>
+{% endif %}
+
+</body>
+</html>

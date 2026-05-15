@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - VNVR Cloud</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        input[type="text"], input[type="password"] { padding: 10px; width: 90%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;}
+        button { padding: 10px 20px; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 10px;}
+        .btn-login { background-color: #007bff; }
+        .btn-login:hover { background-color: #0056b3; }
+        .btn-register { background-color: #28a745; }
+        .btn-register:hover { background-color: #218838; }
+        .error { color: #721c24; margin-bottom: 15px; background: #f8d7da; padding: 8px; border-radius: 4px; font-size: 14px;}
+        .success { color: #28a745; margin-bottom: 15px; background: #d4edda; padding: 8px; border-radius: 4px; font-size: 14px;}
+        .toggle-text { font-size: 13px; color: #666; cursor: pointer; text-decoration: underline; margin-top: 15px; display: block;}
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2 id="form-title">🔒 VNVR Cloud</h2>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              {% if 'Error' in message %}
+                <div class="error">{{ message }}</div>
+              {% else %}
+                <div class="success">{{ message }}</div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            
+            <button type="submit" name="action" value="login" id="login-btn" class="btn-login">Login</button>
+            <button type="submit" name="action" value="register" id="register-btn" class="btn-register" style="display: none;">Create Account</button>
+        </form>
+        
+        <span class="toggle-text" id="toggle-link" onclick="toggleForm()">Need an account? Register here.</span>
+    </div>
+
+    <script>
+        let isLogin = true;
+        function toggleForm() {
+            isLogin = !isLogin;
+            document.getElementById('login-btn').style.display = isLogin ? 'block' : 'none';
+            document.getElementById('register-btn').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('form-title').innerText = isLogin ? '🔒 VNVR Cloud' : '📝 Create Account';
+            document.getElementById('toggle-link').innerText = isLogin ? 'Need an account? Register here.' : 'Already have an account? Login.';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeavyLift | Secure Large Transfer</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background-color: #1e1e1e; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); width: 100%; max-width: 500px; text-align: center; }
+        .file-input-wrapper { margin: 20px 0; position: relative; overflow: hidden; display: inline-block; }
+        .btn { border: 2px solid #3B8ED0; background-color: transparent; color: #3B8ED0; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; }
+        .btn:hover { background-color: #3B8ED0; color: #fff; }
+        input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+        #file-name { margin-top: 10px; color: #aaa; font-size: 14px; }
+        .progress-bg { background-color: #333; border-radius: 8px; height: 24px; width: 100%; margin-top: 25px; overflow: hidden; display: none; }
+        .progress-bar { background-color: #2CC985; height: 100%; width: 0%; transition: width 0.2s; }
+        #status { margin-top: 15px; font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>HeavyLift Transfer</h2>
+    <p style="color: #777; margin-bottom: 30px;">Send files up to 50GB without crashing.</p>
+
+    <div class="file-input-wrapper">
+        <button class="btn">Select Massive File</button>
+        <input type="file" id="fileInput" onchange="updateFileName()">
+    </div>
+    <div id="file-name">No file selected</div>
+
+    <button class="btn" id="uploadBtn" style="margin-top: 20px; background-color: #3B8ED0; color: white;" onclick="startUpload()">Start Upload</button>
+
+    <div class="progress-bg" id="progressContainer">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div id="status"></div>
+</div>
+
+<script>
+    function updateFileName() {
+        const file = document.getElementById('fileInput').files[0];
+        if (file) {
+            document.getElementById('file-name').innerText = `${file.name} (${(file.size / (1024*1024*1024)).toFixed(2)} GB)`;
+        }
+    }
+
+    async function startUpload() {
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) {
+            alert("Please select a file first.");
+            return;
+        }
+
+        const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+        const totalChunks = Math.ceil(file.size / chunkSize);
+        const fileName = file.name;
+        
+        document.getElementById('uploadBtn').disabled = true;
+        document.getElementById('progressContainer').style.display = 'block';
+        const statusText = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, file.size);
+            const chunk = file.slice(start, end);
+
+            const formData = new FormData();
+            formData.append('file', chunk);
+            formData.append('filename', fileName);
+            formData.append('chunkIndex', i);
+            formData.append('totalChunks', totalChunks);
+
+            try {
+                // Wait for the chunk to successfully upload before sending the next one
+                await fetch('/upload', { method: 'POST', body: formData });
+                
+                // Update Progress UI
+                const percentComplete = Math.round(((i + 1) / totalChunks) * 100);
+                progressBar.style.width = percentComplete + '%';
+                statusText.innerText = `Uploading: ${percentComplete}%`;
+                
+            } catch (error) {
+                statusText.innerText = `Error uploading chunk ${i + 1}. Check connection.`;
+                document.getElementById('uploadBtn').disabled = false;
+                return;
+            }
+        }
+
+        statusText.innerText = "✅ Upload Complete!";
+        statusText.style.color = "#2CC985";
+    }
+</script>
+
+</body>
+</html>
