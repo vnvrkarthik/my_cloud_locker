@@ -12,7 +12,7 @@ This repository contains three independent project directories, each representin
 
 1. `my_cloud_locker_v1`
 2. `my_cloud_locker_multiuser_v2`
-3. `MEGA FILE TRANSFER 3 PROJECTS_v3.1`
+3. `MEGA FILE TRANSFER 3 PROJECTS_v3.1(GB3)`
 
 ---
 
